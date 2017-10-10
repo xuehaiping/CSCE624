@@ -14,7 +14,18 @@
 	<script type="text/javascript">
     // This max value for this is 20000. If you go above it, it will limit to 20000. There are 10k arrows and 10k not arrows.
     // I recommend starting small until all your features calculate correctly, because 20000 will take a few min to fetch and calculate.
-    maxResults = 1;
+    maxResults = 20000;
+
+
+		// Instruction of execution
+		//
+		// All the features are included in the featureUtil.js. Run index.html for the result.
+		//
+		// Comment the feature function of all features and uncomment optimal features. For two CVS files.
+
+
+
+
 
     // The interpretation will automatically be added to each row of csv data for you.
     // Place the function names to calculate your features here. The function name will be the header of the csv file for that row.
@@ -22,7 +33,13 @@
 												firstLastPointDistance, firstLastPointCosine, firstLastPointSine, totalGestureLength,
 												totalAngleTraversed, absoluteTotalAngleTraversed, squareTotalAngleTraversed, maxSpeedSquare,
 												gestureDuration, aspectRatio, Curviness, strokeLenEndPointRatio, strokeLenBoundingBoxRatio, openess,
-											areaOfBoundingBox, logAreaOfBoundingBox, rotationalChange, logStrokeLen, logAspectRatio];
+											areaOfBoundingBox, logAreaOfBoundingBox, rotationalChange, relativeRotation, logStrokeLen, logAspectRatio, DCR,
+											numberOfStrokes, numberOfPoints, sumOfStrokeFirstLastPointLen, numberOfAngle, DCRMin];
+
+		// //optimal features
+		// featureFunctions = [initAngleCosine, initAngleSine, BoundBoxDiagonalLength, BoundBoxDiagonalAngle, firstLastPointDistance,
+		// 										firstLastPointCosine, firstLastPointSine, totalAngleTraversed, absoluteTotalAngleTraversed, squareTotalAngleTraversed,
+		// 										aspectRatio, Curviness, strokeLenEndPointRatio, strokeLenBoundingBoxRatio, openess, logStrokeLen, logAspectRatio, DCR, DCRMin]
 
 	// featureFunctions = [Curviness, Curviness_test];
 
@@ -117,41 +134,9 @@
     	a.download = 'features.csv';
     	document.body.appendChild(a);
     	a.click();
-
-			// var csvString = csvRows.join('%0A');
-			// var a = document.createElement('a');
-    	// a.href = 'data:text/csv;charset=utf-8,' + csvString;
-    	// a.target = '_blank';
-    	// a.download = 'features.csv';
-    	// document.body.appendChild(a);
-    	// a.click();
-
-
-			//sample test
-			// document.querySelector('#download').addEventListener('click', function() {
-			// 	var jsonString = "";
-			// 	for(var i = 0; i < sketch_sample.length; i++) {
-			// 		jsonString = jsonString + JSON.stringify(sketch_sample[i]) + '\n';
-			// 	}
-			//
-			//   var blob = new Blob( [jsonString], {
-			//       type: 'application/octet-stream'
-			//   });
-			//
-			//   var url = URL.createObjectURL( blob );
-			//   var link = document.createElement( 'a' );
-			//   link.setAttribute( 'href', url );
-			//   link.setAttribute( 'download', 'data.json' );
-			//
-			//   link.click()
-			//
-			//   URL.revokeObjectURL(url)
-			//
-			// });
 		}
 
 		var sketch_sample = [];
-
 
     function getSketch() {
     	if (counter == sketchIds.length || counter == maxResults) { saveCSV(); return; } // Reached the last sketch.
@@ -167,7 +152,7 @@
 					//write sample json
 					sketch_sample.push(sketch);
 					sketch.pointsDict = arrayToObj(sketch.points);
-					console.log(sketch);
+					//console.log(sketch);
 					document.getElementById('progress').textContent = 'Calculating features for sketch ' + counter + ' of ' + maxResults;
 					if(sketch.points.length != 0)
 						calculateFeatures(sketch);
