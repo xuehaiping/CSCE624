@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Homework 2 Starter</title>
+	<!-- An AMD-loader like RequireJS is necessary for srlib's asynchronous modules -->
+	<script src="require.js"></script>
+	<!-- Load srlib following RequireJS -->
+	<script src="srlib.js"></script>
+	<!-- JQuery provides a very nice set of tools when dealing with AJAX requests -->
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+</head>
+<body>
+	<div>Data location</div>
+	<div><input type='radio' name='dataLocation' value='local'>Load data from local data file <input type="file" name="file" id="file"></div>
+	<div><input type='radio' name='dataLocation' value='trussOnly'>Load trusses ONLY from server</div>
+	<div><input type='radio' name='dataLocation' value='trussAndOther' checked>Load trusses and non-trusses from server</div>
+	<div>Sketch Limit <input type="number" name="limit" id="limit" value='10'></div>
+	<button id='start'>Start</button>
+	<div id='progress'>Progress will show here.</div>
+	<table>
+		<tr>
+			<td></td>
+			<td>Contains truss</td>
+			<td>No truss</td>
+		</tr>
+		<tr>
+			<td>Predicted truss</td>
+			<td id='TP'>0</td>
+			<td id='FP'>0</td>
+		</tr>
+		<tr>
+			<td>Predicted no truss</td>
+			<td id='FN'>0</td>
+			<td id='TN'>0</td>
+		</tr>
+	</table>
+	<div id='strokeIdResults'></div>
+
+	<canvas id="sketch" width="1024" height="1024" style="top:0px;left:0px;border:1px solid #d3d3d3">
+	Your browser does not support the HTML5 canvas tag.</canvas>
+
+	<select id="sketches" size="2" style="top:0px;left:0px;width:20%;height:1024px;" onchange="updateCanvas()"></select>
+
+
+	<script type="text/javascript">
+	/**
+	 * Checks a sketch to see if it contains a truss.
+	 *
+	 * This function MUST return an object with the following 2 key-value pairs.
+	 * containsTruss : true OR false
+	 * trussStrokeIds : [id1, id2, ...] OR [] if no truss
+	 */
+
+	function checkSketchForTruss(sketch) {
+		var output = {'containsTruss': false, 'trussStrokeIds': [] };
+		var strokeIds = [];
+		// DO SOMETHING HERE TO FIND IF THERE IS A TRUSS AND WHAT STROKE IDS IT IS MADE FROM
+
+		// Instead of an array, you can use a Set, but make sure to return an array. Something along these lines should work.
+		// var strokeIds = new Set();
+		// strokeIds.add(id);
+		// output.trussStrokeIds = [...strokeIds]; // This is valid syntax and turns the set into an array.
+
+		output.trussStrokeIds = strokeIds;
+		return output;
+	}
+
+$(document).ready(function() {
+	sketches_select = {};
+	deserializer = new srlib.core.data.io.Deserializer();
+	serializer = new srlib.core.data.io.Serializer();
+	drawShapes = true;
+	drawSubstrokes = false;
+	});
+
+
+
+	// Draw data on update of sketch selection
+	function updateCanvas() {
+		var c = document.getElementById("sketch");
+		var ctx = c.getContext("2d");
+
+		// Clear canvas first
+		ctx.clearRect(0,0,c.width,c.height);
+
+		var current = sketches_select[$('#sketches').val()]; // Select the sketch selected from global dictionary
+
+		// Draw substrokes
+		if (drawSubstrokes) {
+			for (var key in current.getSubstrokes()) {
+				// Draw new substroke
+
+				var stroke = current.getSubstrokes()[key]; // Select the drawing area
+				var points = stroke.getPoints();
+
+				ctx.beginPath();
+				ctx.lineWidth = "5";
+				ctx.strokeStyle = "#"+((1<<24)*Math.random()|0).toString(16); // Randomize stroke colors for easy visualization
+
+				for (var i = 0; i < points.length; i++) { // Set path to point values
+					if (i == 0) {
+						ctx.moveTo(points[i].getX(),points[i].getY());
+					}
+					else {
+						ctx.lineTo(points[i].getX(),points[i].getY());
+					}
+				}
+
+				ctx.stroke();  // Draw it
+			}
+		}
+		else { // Draw shapes, all shape items one color
+			for (var key in current.getShapes()) {
+
+				var shape = current.getShapes()[key];
+
+				// Check for low-level... Don't draw just nodes or lines
+				if ((shape.getInterpretation() != "node") && (shape.getInterpretation() != "line")) {
+
+					var subelements = shape.getSubElements(); // Get the subelements inside the shape
+
+					var shapeColor = "#"+((1<<24)*Math.random()|0).toString(16); // Randomize shape colors for easy visualization
+					for (var j = 0; j < subelements.length; j++) {
+						// Check if subelement is another shape
+						if (subelements[j] instanceof srlib.core.data.container.Shape) {
+							subelements = subelements.concat(subelements[j].getSubElements()); // Simply append next level subelements for drawing
+						}
+						else {
+							// Check if subelement is substroke; we only want to draw processed strokes, so ignore points and strokes for now
+							if (subelements[j] instanceof srlib.core.data.container.Substroke) {
+								var points = subelements[j].getPoints();
+
+								ctx.beginPath();
+								ctx.lineWidth = "5";
+								ctx.strokeStyle = shapeColor;
+								for (var i = 0; i < points.length; i++) { // Set path to point values
+									if (i == 0) {
+										ctx.moveTo(points[i].getX(),points[i].getY());
+									}
+									else {
+										ctx.lineTo(points[i].getX(),points[i].getY());
+									}
+								}
+								ctx.stroke();
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+
+
+
+
+
+
+
+	//
+	//
+	// Everything below here you shouldn't need to worry about.
+	//
+	//
+
+	var rows = [['mongoId', 'id', 'guessTruss', 'isTruss', 'guessIds', 'realIds', 'shapeFoundMatch', 'idsMatch']];
+
+	/**
+	 * Generates an RFC4122v4-compliant GUID
+	 *
+	 * @return {string} GUID
+	 */
+	var setId = function() {
+		return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+			var r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+			return v.toString(16);
+		});
+	}
+
+	function arrayToObj(array) {
+        var obj = {}
+        for (var i = 0; i < array.length; i++) {
+            var val = array[i];
+            var id = val.id || setId(); // Set a new id if no id is found
+            delete val.id;
+            obj[id] = val;
+        }
+        return obj;
+    }
+
+    // Top answer from https://stackoverflow.com/questions/17836273/export-javascript-data-to-csv-file-without-server-interaction
+    function saveCSV() {
+    	var csvRows = [];
+    	for (var i = 0; i < rows.length; i++) {
+    		csvRows.push(rows[i].join(','));
+    	}
+
+    	var csvString = csvRows.join('\n');
+        var csvData = new Blob([csvString], { type: 'text/csv' });
+        var csvURL = URL.createObjectURL(csvData);
+    	var a = document.createElement('a');
+
+    	a.href = csvURL;
+    	a.target = '_blank';
+    	a.download = 'results.csv';
+    	document.body.appendChild(a);
+    	a.click();
+    }
+
+    function getSketch() {
+    	if (counter == sketchIds.length || counter == limit) { // Reached the last sketch.
+			displayStats();
+			//saveCSV();
+			return;
+		}
+    	var id = sketchIds[counter];
+    	counter++;
+		$.ajax({
+			type: "GET",
+			url: "http://srl-prod1.cs.tamu.edu:7750/getSketches?id=" + id,
+			dataType: 'json',
+			contentType: "application/json",
+			success: function(res) {
+				var sketch = res[0];
+				sketch.points = arrayToObj(sketch.points);
+				document.getElementById('progress').textContent = 'Checking sketch  ' + counter + ' of ' + limit;
+				compareAndLogStats(sketch, checkSketchForTruss(sketch));
+				getSketch();
+			}
+		});
+    }
+
+	// Load data from server, populating global list of sketchIds
+	var sketchIds;
+	var counter = 0;
+	function getSketchesFromServer(interpretation) {
+		$.ajax({url: "http://srl-prod1.cs.tamu.edu:7750/getIds?domain=SketchRec2017HW2&interpretation=" + interpretation, success: function(result) {
+			sketchIds = result;
+			if (limit > sketchIds.length) { limit = sketchIds.length; } // In case there are fewer sketches than the user selected limit.
+			getSketch();
+		}});
+	}
+
+	function getSketchesFromFile() {
+		var file = document.getElementById('file').files[0];
+		var reader = new FileReader();
+		document.getElementById('progress').textContent = 'Check console log for progress updates.';
+		reader.onload = function(progressEvent) {
+			// Read line by line
+			var lines = this.result.split('\n');
+			if (limit > lines.length) { limit = lines.length; } // In case there are fewer lines than the user selected limit.
+			for(var line = 0; line < limit; line++){
+				if (lines[line] == '') { continue; }
+				var sketch = JSON.parse(lines[line]);
+				// delete sketch.shapes;
+				// delete sketch.substrokes;
+				var original = deserializer.fromSketchMLJSON(JSON.stringify(sketch));
+				sketches_select[original.getId()] = original;
+				$('#sketches').append($('<option/>', {
+					value: original.getId(), // Save sketch id as value for easy access from global dictionary
+					text : original.getId() // Show id as value
+				}));
+
+				sketch.points = arrayToObj(sketch.points);
+				console.log('Checking sketch ' + (line + 1) + ' of ' + limit);
+				compareAndLogStats(JSON.parse(lines[line]), checkSketchForTruss(sketch)); // Reparse as the sketch param in case they change anything.
+			}
+			displayStats();
+			//saveCSV();
+		};
+
+		reader.readAsText(file);
+	}
+
+	function findParentStrokes(sketch, shapeId) {
+		var shape = sketch.shapes[shapeId];
+		for (var i = 0; i < shape.subElements.length; i++) {
+			var subElemId = shape.subElements[i];
+			if (sketch.shapes[subElemId] != undefined) { // Found subElem in shapes
+				var subElem = sketch.shapes[subElemId];
+				if (subElem.interpretation === 'node') { // Ignore nodes
+					continue;
+				} else if (subElem.interpretation === 'line') { // Find stroke id
+					var strokeSubElemId = subElem.subElements[0];
+					if (sketch.substrokes[strokeSubElemId] != undefined) { // Found line subElement id in substrokes. Get substroke's parent Id
+						sketch.trussStrokeIds.add(sketch.substrokes[strokeSubElemId].parent);
+					} else if (sketch.strokes[strokeSubElemId] != undefined) { // Subelement was a parent stroke, so use that id.
+						sketch.trussStrokeIds.add(strokeSubElemId);
+					}
+				} else { // Subelem is some other shape
+					findParentStrokes(sketch, subElemId);
+				}
+			} else if (sketch.strokes[subElemId] != undefined) { // Check in strokes (some older versions of sketches don't store lines as a shape)
+				sketch.trussStrokeIds.add(subElemId);
+			} else if (sketch.substrokes[subElemId] != undefined) { // And check in substrokes for same reason as strokes
+				sketch.trussStrokeIds.add(sketch.substrokes[subElemId].parent);
+			}
+		}
+	}
+
+	// 4 cases for if a truss was found or not. These get reset in the start button onclick.
+	var TP = 0;
+	var TN = 0;
+	var FP = 0;
+	var FN = 0;
+	// All or nothing accuracy for strokeIds, so just track if they match entirely or not.
+	var strokeIdMatches = 0;
+	function compareAndLogStats(sketch, ans) {
+		sketch.shapes = arrayToObj(sketch.shapes);
+		sketch.substrokes = arrayToObj(sketch.substrokes);
+		sketch.trussStrokeIds = new Set();
+
+		var row = [];
+		row.push(sketch['_id']);
+		row.push(sketch.id);
+		row.push(ans.containsTruss);
+
+		// This finds the answer data for the original sketch. Could probably be factored out of this function, but for the homework starter files I'm tired and this works fine anyway.
+		sketch.containsTruss = false;
+		Object.keys(sketch.shapes).forEach(function(key) {
+			var shape = sketch.shapes[key];
+			if (shape.interpretation === 'truss') {
+				sketch.containsTruss = true;
+				findParentStrokes(sketch, key);
+			}
+		});
+
+		row.push(sketch.containsTruss);
+		row.push('"' + JSON.stringify([...new Set(ans.trussStrokeIds)]).replace(/"/g, '') + '"'); // This will make the field surrounded by double quotes but have no double quotes so it all appears in 1 cell in the CSV.
+		row.push('"' + JSON.stringify([...sketch.trussStrokeIds]).replace(/"/g, '') + '"');
+		row.push(sketch.containsTruss === ans.containsTruss);
+
+		// Find if the strokeIds all match.
+		var idsMatch = true; // Until we prove otherwise
+		var tempAns = new Set(ans.trussStrokeIds);
+		var tempSketch = new Set(sketch.trussStrokeIds);
+		if (tempAns.size !== tempSketch.size) { // Different number of strokeIds, so no match.
+			idsMatch = false;
+		} else {
+			for (var elem of tempAns) { // Stupid set iteration not using for in like a normal object...
+				tempSketch.delete(elem);
+			}
+			idsMatch = tempSketch.size === 0; // If all ids match, then all will be removed and tempSketch.size will be 0.
+		}
+		row.push(idsMatch);
+
+		// Update metrics
+		if (sketch.containsTruss && ans.containsTruss) {
+			TP++;
+		} else if (!sketch.containsTruss && ans.containsTruss) { // Doesn't contain a truss, but answer says it does
+			FP++;
+		} else if (sketch.containsTruss && !ans.containsTruss) {
+			FN++;
+		} else {
+			TN++;
+		}
+		if (idsMatch) { strokeIdMatches++; }
+
+		rows.push(row);
+	}
+
+	function displayStats() {
+		document.getElementById('TP').textContent = TP;
+		document.getElementById('FP').textContent = FP;
+		document.getElementById('FN').textContent = FN;
+		document.getElementById('TN').textContent = TN;
+		document.getElementById('strokeIdResults').textContent = 'StrokeIds matched for ' + strokeIdMatches + ' of ' + limit + ' total sketches.';
+	}
+
+	var limit;
+	document.getElementById('start').addEventListener('click', function() {
+		TP = 0;
+		TN = 0;
+		FP = 0;
+		FN = 0;
+		strokeIdMatches = 0
+		limit = parseInt(document.getElementById('limit').value);
+		var location = document.querySelector('input[name=dataLocation]:checked').value;
+		if (location === 'trussAndOther') {
+			getSketchesFromServer(''); // Empty string interpretation will get everything in the domain.
+		} else if (location === 'trussOnly') {
+			getSketchesFromServer('truss');
+		} else {
+			getSketchesFromFile();
+		}
+	});
+	</script>
+</body>
+</html>
