@@ -1,0 +1,612 @@
+<html>
+<head>
+  <title>Sketchpad</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="text/javascript" src="sketchpad.js"></script>
+  <script type="text/javascript" src="istraw.js"></script>
+  <script type="text/javascript" src="shortStraw.js"></script>
+  <script type="text/javascript" src="sketchRecTools.js"></script>
+  <script src="sketchio.js"></script>
+  <script src="graphAlgorithm.js"></script>
+  <script src="data.js"></script>
+  <script src="require.js"></script>
+  <script type="text/javascript" src="srlib.js"></script>
+  <!-- JQuery provides a very nice set of tools when dealing with AJAX requests -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+
+</head>
+
+<body onload="init()">
+  <div id="content">
+    <div>
+      <canvas id="drawCanvas" class="canvaslook" width="400" height="400" ></canvas>
+      <!-- <canvas id="sketchpad" width="400" height="400" ></canvas> -->
+    </div>
+
+    <div>
+      <canvas id="previewCanvas" class="canvaslook" width="2000" height="2000"></canvas>
+    </div>
+
+    <div>
+      <input type="submit" value="Clear" class="elementlook" onclick="clearButton(drawCanvas, drawContext);">
+      <input type="submit" value="Undo" class="elementlook" onclick="undoButton(drawCanvas, drawContext);">
+      <input type="submit" value="Test" class="elementlook" onclick="testButton();">
+      <select id="algorithm" class="elementlook" onChange="instruct()">
+	      <option value="-----"             >--------------------</option>
+  		  <option value="boundingBox"       >Bounding Box</option>
+        <option value="boundingBoxes"     >Bounding Boxes</option>
+        <option value="centerCentroid"    >Center (Centroid)</option>
+        <option value="centerMidpoint"    >Center (Midpoint)</option>
+        <option value="shortStraw"        >Corner-Finding (ShortStraw)</option>
+        <option value="iStraw"            >Corner-Finding (IStraw)</option>
+  		  <option value="endpoints"         >Endpoints</option>
+  		  <option value="resampleByCount"   >Resample (Count)</option>
+  		  <option value="resampleByDistance">Resample (Distance)</option>
+        <option value="scaleProportion"   >Scale (Proportional)</option>
+        <option value="scaleSquare"       >Scale (Square)</option>
+        <option value="translate"         >Translate</option>
+  		</select>
+      <input type="text" id="argument" class="elementlook" name="argument" maxlength="6" size="6">
+    </div>
+
+    <div>
+      <!-- put output here -->
+    </div>
+
+    <div>
+      <p id="instructions"></p>
+    </div>
+  </div>
+
+  <script>
+  
+  $(document).ready(function() {
+	deserializer = new srlib.core.data.io.Deserializer();
+	serializer = new srlib.core.data.io.Serializer();
+	simSketch = data[1];//SketchIo.getSketchObject(test);
+	});
+	 var deepCopy = function( o ) {
+      return JSON.parse(JSON.stringify( o ));
+  }
+  function testButton() {
+
+    showPreview();
+    var sketch = getSketch();
+
+    // --------------------------------------------------
+
+    var algorithmElement = document.getElementById("algorithm");
+    var argumentElement = document.getElementById("argument");
+
+    var algorithmName = algorithmElement.options[algorithmElement.selectedIndex].text;
+    var argumentValue = argumentElement.value;
+    if (argumentValue !== "") { argumentValue = Number.parseInt(argumentValue); } // parse arrgument from string to number
+
+    if (algorithmName === "Bounding Box") { displayBoundingBox(sketch); }
+    if (algorithmName === "Bounding Boxes") { displayBoundingBoxes(sketch); }
+    if (algorithmName === "Corner-Finding (IStraw)") { displayCornerFindingIStraw(sketch); }
+    if (algorithmName === "Corner-Finding (ShortStraw)") { displayCornerFindingShortStraw(sketch); }
+    if (algorithmName === "Center (Centroid)") { displayCenterCentroid(sketch); }
+    if (algorithmName === "Center (Midpoint)") { displayCenterMidpoint(sketch); }
+    if (algorithmName === "Endpoints") { displayEndpoints(sketch); }
+    if (algorithmName === "Resample (Count)") { displayResampleByCount(sketch, argumentValue); }
+    if (algorithmName === "Resample (Distance)") { displayResampleByDistance(sketch, argumentValue); }
+    if (algorithmName === "Scale (Proportional)") { displayScaleProportional(sketch, argumentValue); }
+    if (algorithmName === "Scale (Square)") { displayScaleSquare(sketch, argumentValue); }
+    if (algorithmName === "Translate") { displayTranslate(sketch, argumentValue); }
+  }
+
+  function displayBoundingBox(sketch) {
+    var box = SketchRecTools.calculateBoundingBox(sketch);
+
+    // get the strokes
+    var topStroke = {points: [box.topLeft, box.topRight]};
+    var leftStroke = {points: [box.topLeft, box.bottomLeft]};
+    var rightStroke = {points: [box.topRight, box.bottomRight]};
+    var bottomStroke = {points: [box.bottomLeft, box.bottomRight]};
+
+    var boundingStrokes = [topStroke, leftStroke, rightStroke, bottomStroke];
+    var boundingBox = { strokes: boundingStrokes };
+
+
+    previewSketch(sketch, "gray");
+    previewSketch(boundingBox, "red");
+  }
+
+  function displayBoundingBoxes(sketch) {
+
+    var boundingStrokes = [];
+    // iterate through each sketch stroke
+    var strokes = sketch.strokes;
+    strokes.forEach(function(stroke){
+      // wrap the stroke into a sketch
+      var strokeSketch = { strokes: [stroke] };
+
+      var box = SketchRecTools.calculateBoundingBox(strokeSketch);
+
+      // get the strokes
+      var topStroke = {points: [box.topLeft, box.topRight]};
+      var leftStroke = {points: [box.topLeft, box.bottomLeft]};
+      var rightStroke = {points: [box.topRight, box.bottomRight]};
+      var bottomStroke = {points: [box.bottomLeft, box.bottomRight]};
+
+      boundingStrokes.push(topStroke, leftStroke, rightStroke, bottomStroke);
+    });
+
+    var boundingBox = { strokes: boundingStrokes };
+
+    previewSketch(sketch, "gray");
+    previewSketch(boundingBox, "red");
+  }
+
+  function displayEndpoints(sketch) {
+    var endpoints = [];
+    var strokes = sketch.strokes;
+    for (var i = 0; i < strokes.length; i++) {
+      var points = strokes[i].points;
+      var start = points[0];
+      var end = points[points.length-1];
+      endpoints.push(start);
+      endpoints.push(end);
+    }
+
+    previewSketch(sketch, "gray");
+    previewPoints(endpoints, "red");
+  }
+
+  function displayCornerFindingShortStraw(sketch) {
+    var corners = ShortStraw.findShortStrawCorners(sketch);
+	
+    previewSketch(sketch, "gray");
+    previewPoints(corners, "red");
+	
+  }
+
+  var corners4stroke=[]; 
+  var indexmaxcorner=0;
+  var indexmaxedge=0;
+  var indexmaxtriangle=0;  
+  var indexmaxtruss=0;  
+  function displayCornerFindingShortStraw(sketch) {
+    // get the resampled sketch and its corner indices
+    var resampledSketch = SketchRecTools.resampleByDistance(simSketch);
+    var sketchCornerIndices = ShortStraw.run(resampledSketch);
+	
+    // gather the corners from their indices
+    var corners = [];
+	var tempcorner= new Object();
+    for (var i = 0; i < resampledSketch.strokes.length; i++) {
+      var resampledPoints = resampledSketch.strokes[i].points;
+      var strokeCornerIndices = sketchCornerIndices[i];
+	  //add添加根据stroke分别存corner的数组;
+	  corners4stroke[i]= new Object();
+	  corners4stroke[i].pointsI= [];
+	  //addend
+      for (var j = 0; j < strokeCornerIndices.length; j++) {
+		corners.push(resampledPoints[strokeCornerIndices[j]]);
+		//add根据stroke分别存corner;
+		tempcorner.point=resampledPoints[strokeCornerIndices[j]];
+		tempcorner.label=0;//初始化
+		tempcorner.index=0;//初始化
+		//console.log(tempcorner);
+		corners4stroke[i].pointsI.push(tempcorner);
+		tempcorner=[];
+	  }
+	}
+	  //console.log('mycorner')
+	  //console.log(corners4stroke);
+	  //console.log(corners);
+	  //add添加一个函数对所有stroke的所有corner遍历并赋予全局索引Index，在nested loop中向后比较是否有distance小于threshold的corner，有则index赋予相同值,label置1。
+	  var glcorners=SetIndex(corners4stroke);
+	  console.log(glcorners);
+	  //console.log(indexmaxcorner);
+	  //addend
+	  //add添加一个函数对每一个stroke的点序列对存为全局edge矩阵(可能存在同一edge对应多个stroke情况，若不影响acc，则先不改)，矩阵元素为先出现的strokeid
+	  var gledges=SetEdge(glcorners);
+	  console.log(gledges);
+	  //addend
+	  //Remove Single Edge
+	  var edges1 = deepCopy(gledges);
+	  var glValidVertice=findValidVertices(edges1);
+	  console.log(glValidVertice);
+	  console.log(edges1);
+	  //end Remove
+	  //add添加一个函数对edge矩阵遍历获得三角形集合
+	  var gltriangles=SetTriangle(gledges);
+	  console.log(gltriangles);
+	  console.log(indexmaxtriangle);
+	  //addend
+	  //add添加一个函数对三角形集合遍历是否有share边，有share边则label=1。否则label=-1
+	  var gltruss=SetTruss(gltriangles);
+	  console.log(gltruss);
+	  //addend
+	  //add添加一个函数提取gltruss的三角形中的边对应的strokeID，存为strokeID集合
+	  var glstrokeID=SetStrokeID(gltruss,gledges);
+	  console.log(glstrokeID);
+	  //addend
+	
+    previewSubStroke(resampledSketch);
+	//previewSketch(sketch, "gray");
+    previewPoints(corners, "red");
+  }
+	//add添加函数原型
+
+	function SetIndex(corners4stroke) {
+		var index=1;
+		var threshold=60;
+		for (var i = 0; i < corners4stroke.length; i++) {
+			for (var j = 0; j < corners4stroke[i].pointsI.length; j++) {
+				for (var h = i; h < corners4stroke.length; h++) {
+					for (var k = 0; k < corners4stroke[h].pointsI.length; k++) {
+						if (((i==h)&&(j==k))&&(corners4stroke[i].pointsI[j].label*corners4stroke[h].pointsI[k].label==1))
+						{
+							continue;
+						}
+						var x1=corners4stroke[i].pointsI[j].point.x;
+						var y1=corners4stroke[i].pointsI[j].point.y;
+						var x2=corners4stroke[h].pointsI[k].point.x;
+						var y2=corners4stroke[h].pointsI[k].point.y;
+						var dist= Math.sqrt(Math.pow((x2-x1),2)+Math.pow((y2-y1),2));
+						if (dist>threshold){
+							if (corners4stroke[i].pointsI[j].label==0){
+								corners4stroke[i].pointsI[j].label=1;
+								corners4stroke[i].pointsI[j].index=index;
+								index=index+1;
+							}
+						}
+						else{
+							if (corners4stroke[i].pointsI[j].label==0){
+								if (corners4stroke[h].pointsI[k].label==0){
+									corners4stroke[i].pointsI[j].label=1;
+									corners4stroke[i].pointsI[j].index=index;
+									corners4stroke[h].pointsI[k].label=1;
+									corners4stroke[h].pointsI[k].index=index;
+									index=index+1;
+								}
+								else{
+									corners4stroke[i].pointsI[j].label=1;
+									corners4stroke[i].pointsI[j].index=corners4stroke[h].pointsI[k].index;
+								}	
+							}
+							else{
+								corners4stroke[h].pointsI[k].label=1;
+								corners4stroke[h].pointsI[k].index=corners4stroke[i].pointsI[j].index;
+							}
+						}	
+					}
+				}
+			}
+		}
+		indexmaxcorner=index-1;
+		//console.log(indexmaxcorner);
+		return corners4stroke;
+	}
+	//addend
+	
+	//add添加函数原型
+	function SetEdge(glcorners){
+		//初始化矩阵
+		var gledges = [];
+		console.log(indexmaxcorner);
+		for (var i = 0; i <= indexmaxcorner; i++) {
+			gledges[i] = [];
+			for (var j = 0; j <= indexmaxcorner; j++) {
+				gledges[i][j] = 0;
+			}
+		}
+		//
+		var edgetemp=new Object();
+		for (var i = 0; i < glcorners.length; i++) {
+			for (var j = 0; j < glcorners[i].pointsI.length-1; j++) {
+				var index1=glcorners[i].pointsI[j].index;
+				var index2=glcorners[i].pointsI[j+1].index;
+				if( index1==index2){continue;}
+				//console.log(glcorners.length);
+				//console.log(gledges);
+				if (gledges[index1][index2]==0) {
+					gledges[index1][index2]=i+1;
+					gledges[index2][index1]=i+1;
+					//console.log(index1);
+					//console.log(index2);
+					//console.log(gledges[index2][index1]);
+				}//这里暂时以i当做strokeID，修改resample函数之后再改回ID
+			}
+		}
+		//console.log(gledges);
+		return gledges;
+	}
+	//addend
+	
+	function SetTriangle(gledges){
+		var gltriangles = [];
+		var num=0;
+		for (var i = 1; i <= indexmaxcorner; i++){
+			for (var j = i+1; j <= indexmaxcorner; j++){
+				if (gledges[i][j]==0) {continue;}
+				for (var k = j+1; k <= indexmaxcorner; k++){
+					if (gledges[i][k]==0) {continue;}
+					if (gledges[j][k]==0) {continue;}
+					gltriangles[num]=[];
+					gltriangles[num][0] = i;
+					gltriangles[num][1] = j;
+					gltriangles[num][2] = k;
+					gltriangles[num][3] = 0; //下个函数里作为是否遍历过的符号
+					//console.log('i'+i);
+					//console.log('j'+j);
+					//console.log('k'+k);
+					num=num+1;
+				}
+			}
+		}
+		indexmaxtriangle=num;
+		console.log(gltriangles);
+		return gltriangles;
+	}
+	
+	function  SetTruss(gltriangles){
+		var gltruss = [];
+		var temp=0;
+		var truss=0;
+		for (var i = 0; i < gltriangles.length; i++){
+			for (var j = i+1; j < gltriangles.length; j++){				
+				if ((gltriangles[i][0]==gltriangles[j][0])||(gltriangles[i][0]==gltriangles[j][1])||(gltriangles[i][0]==gltriangles[j][2])) {temp=temp+1;}
+				if ((gltriangles[i][1]==gltriangles[j][0])||(gltriangles[i][1]==gltriangles[j][1])||(gltriangles[i][1]==gltriangles[j][2])) {temp=temp+1;}
+				if ((gltriangles[i][2]==gltriangles[j][0])||(gltriangles[i][2]==gltriangles[j][1])||(gltriangles[i][2]==gltriangles[j][2])) {temp=temp+1;}
+				if (temp>=2){
+					if (gltriangles[i][3]!=1){
+						gltriangles[i][3]=1;
+						gltruss[truss]=[];
+						gltruss[truss][0]=gltriangles[i][0];
+						gltruss[truss][1]=gltriangles[i][1];
+						gltruss[truss][2]=gltriangles[i][2];
+						truss=truss+1;
+					}
+					if (gltriangles[j][3]!=1){
+						gltriangles[j][3]=1;
+						gltruss[truss]=[];
+						gltruss[truss][0]=gltriangles[j][0];
+						gltruss[truss][1]=gltriangles[j][1];
+						gltruss[truss][2]=gltriangles[j][2];						
+						truss=truss+1;						
+					}
+				}
+				temp=0;
+			}
+		}
+		indexmaxtruss=truss;
+		//console.log(gltruss);
+		return gltruss;
+	}
+	
+	function  SetStrokeID(gltruss,gledges){
+		var glstrokeID=[];
+		for (var i = 0; i < gltruss.length; i++){
+			var a=gltruss[i][0];
+			var b=gltruss[i][1];
+			var c=gltruss[i][2];
+			var stroke1=gledges[a][b];
+			var stroke2=gledges[b][c];
+			var stroke3=gledges[a][c];
+			var label1=0;
+			var label2=0;
+			var label3=0;
+			for (var j = 0; j <= glstrokeID.length; j++){
+				if (stroke1==glstrokeID[j]){label1=1;}
+				if (stroke2==glstrokeID[j]){label2=1;}
+				if (stroke3==glstrokeID[j]){label3=1;}
+			}
+			if ((label1==0)&&(!glstrokeID.includes(stroke1))){glstrokeID.push(stroke1);}
+			if ((label2==0)&&(stroke2!=stroke1)&&(!glstrokeID.includes(stroke2))){glstrokeID.push(stroke2);}
+			if ((label3==0)&&(stroke3!=stroke1)&&(stroke3!=stroke1)&&(!glstrokeID.includes(stroke3))){glstrokeID.push(stroke3);}
+		}
+		//console.log(glstrokeID);
+		return glstrokeID;
+	}
+	
+  function displayCornerFindingIStraw(sketch) {
+    // get the resampled sketch and its corner indices
+    var resampledSketch = SketchRecTools.resampleByDistance(sketch);
+    var sketchCornerIndices = IStraw.run(resampledSketch);
+
+    // gather the corners from their indices
+    var corners = [];
+    for (var i = 0; i < resampledSketch.strokes.length; i++) {
+      var resampledPoints = resampledSketch.strokes[i].points;
+      var strokeCornerIndices = sketchCornerIndices[i];
+      for (var j = 0; j < strokeCornerIndices.length; j++) {
+        corners.push(resampledPoints[strokeCornerIndices[j]]);
+      }
+    }
+
+    previewSketch(sketch, "gray");
+    previewPoints(corners, "red");
+  }
+
+  function displayEndpoints(sketch) {
+
+    var endpoints = [];
+    var strokes = sketch.strokes;
+    for (var i = 0; i < strokes.length; i++) {
+    	var points = strokes[i].points;
+    	var start = points[0];
+    	var end = points[points.length-1];
+    	endpoints.push(start);
+    	endpoints.push(end);
+    }
+
+    previewSketch(sketch, "gray");
+    previewPoints(endpoints, "red");
+  }
+
+  function displayResampleByCount(sketch, value) {
+
+    if (isNaN(parseInt(value))) { return; }
+    if (value < 1  || value > 200) { return; };
+
+    var resampledSketch = SketchRecTools.resampleByCount(sketch, value);
+    var resampledPoints = [];
+    var resampledStrokes = resampledSketch.strokes;
+    for (var i = 0; i < resampledStrokes.length; i++) {
+      var resampledStroke = resampledStrokes[i];
+      for (var j = 0; j < resampledStroke.points.length; j++) {
+        resampledPoints.push(resampledStroke.points[j]);
+      }
+    }
+
+    previewSketch(sketch, "gray");
+	  previewSketch(resampledSketch, "black");
+    previewPoints(resampledPoints, "red");
+  }
+
+  function displayResampleByDistance(sketch, value) {
+    // handle out-of-range input values
+    if (isNaN(parseInt(value))) { return; }
+    else if (value < 1  || value > 500) { return };
+
+    var resampledSketch = SketchRecTools.resampleByDistance(sketch, value);
+    var resampledPoints = [];
+    var resampledStrokes = resampledSketch.strokes;
+    for (var i = 0; i < resampledStrokes.length; i++) {
+      var resampledStroke = resampledStrokes[i];
+      for (var j = 0; j < resampledStroke.points.length; j++) {
+        resampledPoints.push(resampledStroke.points[j]);
+      }
+    }
+
+    previewSketch(sketch, "gray");
+	  previewSketch(resampledSketch, "black");
+    previewPoints(resampledPoints, "red");
+  }
+
+  function displayTranslate(sketch, value) {
+    // handle out-of-range input values
+    if (isNaN(parseInt(value))) { return; }
+    else if (value < 1  || value > 200) { return };
+
+    // get the bounding box's center
+    var box = SketchRecTools.calculateBoundingBox(sketch);
+    if (box === null) { return; }
+
+    // get the canvas dimensions
+    var canvas = document.getElementById("drawCanvas");
+    var width = canvas.width;
+    var height = canvas.height;
+
+    // get edge distance
+    var leftDistance = box.centerX - 0;
+    var rightDistance = width - box.centerX;
+    var topDistance = box.centerY - 0;
+    var bottomDistance = height - box.centerY;
+
+    // get move travel
+    var moveX = leftDistance < rightDistance ? value : -value;
+    var moveY = topDistance < bottomDistance ? value : -value;
+
+    // get the translated sketch
+    var newSketch = SketchRecTools.translate(sketch, moveX, moveY);
+
+    previewSketch(newSketch, "black");
+  }
+
+  function displayCenterMidpoint(sketch) {
+
+    var canvas = document.getElementById("drawCanvas");
+    var x = canvas.width / 2;
+    var y = canvas.height / 2;
+    var center = {x: x, y: y};
+    var newSketch = SketchRecTools.translateToMidpoint(sketch, center);
+
+    previewSketch(sketch, "LightGray");
+    previewSketch(newSketch, "black");
+  }
+
+  function displayCenterCentroid(sketch) {
+    var canvas = document.getElementById("drawCanvas");
+    var x = canvas.width / 2;
+    var y = canvas.height / 2;
+    var center = {x: x, y: y};
+    var newSketch = SketchRecTools.translateToCentroid(sketch, center);
+
+    previewSketch(sketch, "LightGray");
+    previewSketch(newSketch, "black");
+  }
+
+  function displayScaleProportional(sketch, value) {
+    if (isNaN(parseInt(value))) { return; }
+    if (value < 50  || value > 300) { return; };
+
+    var newSketch = SketchRecTools.scaleProportional(sketch, value);
+    previewSketch(sketch, "LightGray");
+    previewSketch(newSketch, "black");
+  }
+
+  function displayScaleSquare(sketch, value) {
+    if (isNaN(parseInt(value))) { return; }
+    if (value < 50  || value > 300) { return; };
+
+    var newSketch = SketchRecTools.scaleSquare(sketch, value);
+    previewSketch(sketch, "LightGray");
+    previewSketch(newSketch, "black");
+  }
+
+  // ----- helper methods -----
+
+  function instruct() {
+
+    //
+    var hasSelected = false;
+
+  	// get the name of the dropdown menu's current selection
+  	var algorithmElement = document.getElementById("algorithm");
+  	var instructionsElement = document.getElementById("instructions");
+  	var argumentElement = document.getElementById("argument");
+
+  	var algorithmName = algorithmElement.options[algorithmElement.selectedIndex].text;
+
+  	// display the corresponding instructions
+    if (algorithmName === "Corner-Finding (ShortStraw)") {
+      instructionsElement.innerHTML = "this corner-finder only works on polylines";
+      hasSelected = true;
+    }
+
+    if (algorithmName === "Resample (Count)") {
+  		argumentElement.value = 32;
+  		instructionsElement.innerHTML = "Enter value between 1 and 200";
+  		hasSelected = true;
+  	}
+
+  	if (algorithmName === "Resample (Distance)") {
+  		argumentElement.value = 50;
+  		instructionsElement.innerHTML = "Enter value between 1 and 500";
+  		hasSelected = true;
+  	}
+
+    if (algorithmName === "Translate") {
+  		argumentElement.value = 50;
+  		instructionsElement.innerHTML = "Enter value between 1 and 200";
+  		hasSelected = true;
+  	}
+
+    if (algorithmName === "Scale (Proportional)") {
+  		argumentElement.value = 100;
+  		instructionsElement.innerHTML = "Enter value between 50 and 300";
+  		hasSelected = true;
+  	}
+
+    if (algorithmName === "Scale (Square)") {
+  		argumentElement.value = 100;
+  		instructionsElement.innerHTML = "Enter value between 50 and 300";
+  		hasSelected = true;
+  	}
+
+    //
+  	if (!hasSelected) {
+  		argumentElement.value = "";
+  		instructionsElement.innerHTML = "";
+  	}
+  }
+
+
+  </script>
+</body>
+</html>
