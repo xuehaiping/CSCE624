@@ -66,9 +66,11 @@ $(document).ready(function() {
 	deserializer = new srlib.core.data.io.Deserializer();
 	serializer = new srlib.core.data.io.Serializer();
   //original = deserializer.fromSketchMLJSON(JSON.stringify(test));
-  simSketch = data[0];//SketchIo.getSketchObject(test);
+  simSketch = data[10];//SketchIo.getSketchObject(test);
 	});
 
+
+  var DISTANCE_THRESHOLD = 50;
 
   var deepCopy = function( o ) {
       return JSON.parse(JSON.stringify( o ));
@@ -197,7 +199,7 @@ $(document).ready(function() {
   // }
 
   function isStartOrEndPoint(conrer, stroke) {
-      if(euclideanDistance(conrer, stroke[0]) < 15 || euclideanDistance(conrer, stroke[stroke.length-1])< 15)
+      if(euclideanDistance(conrer, stroke[0]) < DISTANCE_THRESHOLD || euclideanDistance(conrer, stroke[stroke.length-1])< DISTANCE_THRESHOLD)
         return true;
       else return false;
   }
@@ -259,7 +261,7 @@ $(document).ready(function() {
       dance:
       for(var j = 0; j < nodes.length; j++) {
         for(var k = 0; k< nodes[j].length; k++) {
-          if(euclideanDistance(nodes[j][k], corners[i]) < 15) {
+          if(euclideanDistance(nodes[j][k], corners[i]) < DISTANCE_THRESHOLD) {
             var newNode = deepCopy(corners[i]);
             newNode.id = cornersId[i];
             nodes[j].push(newNode);
