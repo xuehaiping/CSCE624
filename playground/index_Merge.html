@@ -59,15 +59,27 @@
   </div>
 
   <script>
-  
+
   $(document).ready(function() {
 	deserializer = new srlib.core.data.io.Deserializer();
 	serializer = new srlib.core.data.io.Serializer();
-	simSketch = data[1];//SketchIo.getSketchObject(test);
+	simSketch = data[13];//SketchIo.getSketchObject(test);
+  DISTANCE_THRESHOLD = 60;
 	});
 	 var deepCopy = function( o ) {
       return JSON.parse(JSON.stringify( o ));
   }
+
+  function squareEuclideanDistance(p1, p2) {
+    var deltaX = p1["x"] - p2["x"];
+    var deltaY = p1["y"] - p2["y"];
+    return deltaX*deltaX + deltaY*deltaY;
+  }
+
+  function euclideanDistance(p1, p2) {
+    return Math.sqrt(this.squareEuclideanDistance(p1, p2));
+  }
+
   function testButton() {
 
     showPreview();
@@ -154,45 +166,171 @@
     previewPoints(endpoints, "red");
   }
 
-  function displayCornerFindingShortStraw(sketch) {
-    var corners = ShortStraw.findShortStrawCorners(sketch);
-	
-    previewSketch(sketch, "gray");
-    previewPoints(corners, "red");
-	
+  // function displayCornerFindingShortStraw(sketch) {
+  //   var corners = ShortStraw.findShortStrawCorners(sketch);
+  //
+  //   previewSketch(sketch, "gray");
+  //   previewPoints(corners, "red");
+  //
+  // }
+
+  //check if a node has an id
+  function hasStroke(node, id) {
+    for(var i=0; i<node.length; i++) {
+      if(node[i].id === id)
+        return true;
+    }
+    return false;
   }
 
-  var corners4stroke=[]; 
+  //check if a point is close to a node
+  function isCloseNode(node, point) {
+    for(var i=0; i<node.length; i++) {
+      if(euclideanDistance(node[i], point) < 30)
+        return true;
+    }
+    return false;
+  }
+
+  //merge corner into nodes
+  function findMergeNodes(corners, cornersId) {
+    //we merge close corners into nodes
+    var nodes = [];
+
+    if(corners.length > 0) {
+      var tmpNode = deepCopy(corners[0]);
+      tmpNode.id = cornersId[0];
+      nodes.push([tmpNode]);
+    }
+
+    //merge corners into nodes
+    for (var i = 1; i < corners.length; i++) {
+      var flag = 0;
+      dance:
+      for(var j = 0; j < nodes.length; j++) {
+        for(var k = 0; k< nodes[j].length; k++) {
+          if(euclideanDistance(nodes[j][k], corners[i]) < DISTANCE_THRESHOLD) {
+            var newNode = deepCopy(corners[i]);
+            newNode.id = cornersId[i];
+            nodes[j].push(newNode);
+            flag = 1;
+            break dance;
+          }
+        }
+      }
+      if(flag == 0) {
+        var newNode = deepCopy(corners[i]);
+        newNode.id = cornersId[i];
+        nodes.push([newNode]);
+      }
+    }
+    return nodes;
+  }
+
+
+  //find breaks points for strokes
+  function findBreakPoint(nodes, resampledSketch) {
+    var newCorners = [];
+
+    for(var i=0; i<resampledSketch.strokes.length; i++) {
+      var resampledPoints = resampledSketch.strokes[i].points;
+      var strokeId = resampledSketch.strokes[i].id;
+      for(var j =0; j<nodes.length; j++) {
+        if(!hasStroke(nodes[j], strokeId)) {
+          for(var k=0; k<resampledPoints.length; k++) {
+            if(isCloseNode(nodes[j], resampledPoints[k])) {
+                var tempCorner = deepCopy(resampledPoints[k]);
+                tempCorner.id = strokeId;
+                tempCorner.strokeIndex = i+1;
+                tempCorner.pointIndex = k;
+                newCorners.push(tempCorner);
+                break;
+            }
+          }
+        }
+      }
+    }
+    return newCorners;
+  }
+
+  //insert the index element into a sorted index array
+  function insertIndex(ele, array) {
+    if(array.length<=0) return;
+    if(ele<array[0]) {
+      array.splice(0, 0, ele);
+      return;
+    }
+    for(var i=1; i<array.length; i++) {
+      if(ele>= array[i-1] && ele < array[i]) {
+        array.splice(i, 0, ele);
+        return;
+      }
+    }
+    array.push(ele);
+  }
+
+  var corners4stroke=[];
   var indexmaxcorner=0;
   var indexmaxedge=0;
-  var indexmaxtriangle=0;  
-  var indexmaxtruss=0;  
+  var indexmaxtriangle=0;
+  var indexmaxtruss=0;
   function displayCornerFindingShortStraw(sketch) {
     // get the resampled sketch and its corner indices
     var resampledSketch = SketchRecTools.resampleByDistance(simSketch);
     var sketchCornerIndices = ShortStraw.run(resampledSketch);
-	
     // gather the corners from their indices
     var corners = [];
-	var tempcorner= new Object();
+    var cornersId = [];
+    //find all corners
     for (var i = 0; i < resampledSketch.strokes.length; i++) {
       var resampledPoints = resampledSketch.strokes[i].points;
       var strokeCornerIndices = sketchCornerIndices[i];
-	  //add添加根据stroke分别存corner的数组;
-	  corners4stroke[i]= new Object();
-	  corners4stroke[i].pointsI= [];
-	  //addend
       for (var j = 0; j < strokeCornerIndices.length; j++) {
-		corners.push(resampledPoints[strokeCornerIndices[j]]);
-		//add根据stroke分别存corner;
-		tempcorner.point=resampledPoints[strokeCornerIndices[j]];
-		tempcorner.label=0;//初始化
-		tempcorner.index=0;//初始化
-		//console.log(tempcorner);
-		corners4stroke[i].pointsI.push(tempcorner);
-		tempcorner=[];
-	  }
+        corners.push(resampledPoints[strokeCornerIndices[j]]);
+        cornersId.push(resampledSketch.strokes[i].id);
+      }
+    }
+
+    //find merged nodes
+    var nodes = findMergeNodes(corners, cornersId);
+    console.log(nodes);
+
+    //find new corners in the mid of a stroke
+    var newCorners = findBreakPoint(nodes, resampledSketch);
+    console.log(newCorners);
+
+    for(var i=0; i<newCorners.length; i++) {
+      for(var j=0; j<sketchCornerIndices.length; j++) {
+        //insertIndex
+        if(newCorners[i].strokeIndex-1 == j) {
+          insertIndex(newCorners[i].pointIndex, sketchCornerIndices[j]);
+        }
+      }
+    }
+
+    console.log(sketchCornerIndices);
+
+  	var tempcorner= new Object();
+    for (var i = 0; i < resampledSketch.strokes.length; i++) {
+      var resampledPoints = resampledSketch.strokes[i].points;
+      var strokeCornerIndices = sketchCornerIndices[i];
+  	  //add添加根据stroke分别存corner的数组;
+  	  corners4stroke[i]= new Object();
+  	  corners4stroke[i].pointsI= [];
+	    //addend
+      for (var j = 0; j < strokeCornerIndices.length; j++) {
+  		//corners.push(resampledPoints[strokeCornerIndices[j]]);
+  		//add根据stroke分别存corner;
+  		tempcorner.point=resampledPoints[strokeCornerIndices[j]];
+  		tempcorner.label=0;//初始化
+  		tempcorner.index=0;//初始化
+  		//console.log(tempcorner);
+  		corners4stroke[i].pointsI.push(tempcorner);
+  		tempcorner=[];
+	   }
 	}
+
+
 	  //console.log('mycorner')
 	  //console.log(corners4stroke);
 	  //console.log(corners);
@@ -224,10 +362,11 @@
 	  var glstrokeID=SetStrokeID(gltruss,gledges);
 	  console.log(glstrokeID);
 	  //addend
-	
+
     previewSubStroke(resampledSketch);
 	//previewSketch(sketch, "gray");
-    previewPoints(corners, "red");
+  previewPoints(corners, "red");
+  previewPoints(newCorners, "blue");
   }
 	//add添加函数原型
 
@@ -266,13 +405,13 @@
 								else{
 									corners4stroke[i].pointsI[j].label=1;
 									corners4stroke[i].pointsI[j].index=corners4stroke[h].pointsI[k].index;
-								}	
+								}
 							}
 							else{
 								corners4stroke[h].pointsI[k].label=1;
 								corners4stroke[h].pointsI[k].index=corners4stroke[i].pointsI[j].index;
 							}
-						}	
+						}
 					}
 				}
 			}
@@ -282,7 +421,7 @@
 		return corners4stroke;
 	}
 	//addend
-	
+
 	//add添加函数原型
 	function SetEdge(glcorners){
 		//初始化矩阵
@@ -316,7 +455,7 @@
 		return gledges;
 	}
 	//addend
-	
+
 	function SetTriangle(gledges){
 		var gltriangles = [];
 		var num=0;
@@ -342,13 +481,13 @@
 		console.log(gltriangles);
 		return gltriangles;
 	}
-	
+
 	function  SetTruss(gltriangles){
 		var gltruss = [];
 		var temp=0;
 		var truss=0;
 		for (var i = 0; i < gltriangles.length; i++){
-			for (var j = i+1; j < gltriangles.length; j++){				
+			for (var j = i+1; j < gltriangles.length; j++){
 				if ((gltriangles[i][0]==gltriangles[j][0])||(gltriangles[i][0]==gltriangles[j][1])||(gltriangles[i][0]==gltriangles[j][2])) {temp=temp+1;}
 				if ((gltriangles[i][1]==gltriangles[j][0])||(gltriangles[i][1]==gltriangles[j][1])||(gltriangles[i][1]==gltriangles[j][2])) {temp=temp+1;}
 				if ((gltriangles[i][2]==gltriangles[j][0])||(gltriangles[i][2]==gltriangles[j][1])||(gltriangles[i][2]==gltriangles[j][2])) {temp=temp+1;}
@@ -366,8 +505,8 @@
 						gltruss[truss]=[];
 						gltruss[truss][0]=gltriangles[j][0];
 						gltruss[truss][1]=gltriangles[j][1];
-						gltruss[truss][2]=gltriangles[j][2];						
-						truss=truss+1;						
+						gltruss[truss][2]=gltriangles[j][2];
+						truss=truss+1;
 					}
 				}
 				temp=0;
@@ -377,7 +516,7 @@
 		//console.log(gltruss);
 		return gltruss;
 	}
-	
+
 	function  SetStrokeID(gltruss,gledges){
 		var glstrokeID=[];
 		for (var i = 0; i < gltruss.length; i++){
@@ -402,7 +541,7 @@
 		//console.log(glstrokeID);
 		return glstrokeID;
 	}
-	
+
   function displayCornerFindingIStraw(sketch) {
     // get the resampled sketch and its corner indices
     var resampledSketch = SketchRecTools.resampleByDistance(sketch);
@@ -420,6 +559,7 @@
 
     previewSketch(sketch, "gray");
     previewPoints(corners, "red");
+    //previewPoints(newCorners, "red");
   }
 
   function displayEndpoints(sketch) {
