@@ -107,6 +107,30 @@ function previewSketch(sketch, color) {
 
 }
 
+function previewSubStroke(sketch) {
+  var color = '#';
+  //
+	var originalColor = this.strokeColor;					// save original color
+	strokeColor = color;								// change color
+  //previewContext.fillStyle = color;
+
+	// iterate through each stroke
+	var strokes = sketch.strokes;
+	for (var i = 0; i < strokes.length; i++) {
+		var points = strokes[i].points;
+
+    color = "#"+((1<<24)*Math.random()|0).toString(16);
+		// iterate through each point in the stroke
+		for (var j = 0; j < points.length - 1; j++) {
+			var currPoint = points[j];
+			var nextPoint = points[j + 1];
+			drawLineSegment(previewContext, currPoint.x, currPoint.y, nextPoint.x, nextPoint.y, color, strokeSize);
+		}
+	}
+  //strokeColor = originalColor;						// revert color
+  //previewContext.fillStyle = strokeColor;
+}
+
 function previewPoints(points, color) {
 
 		previewContext.fillStyle = color;						// change color

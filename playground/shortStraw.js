@@ -1,5 +1,4 @@
 var ShortStraw = {
-
   run: function(sketch) {
     // return no corners for an empty sketch
     if (sketch.strokes.length === 0) {return []; }
@@ -11,26 +10,6 @@ var ShortStraw = {
       var strokeCorners = this.findShortStrawCorners(points);
       sketchCorners.push(strokeCorners);
     }
-
-    //united nearby corners
-    // var integratedCorner = []
-    // if(sketchCorners.length > 0) integratedCorner.push(sketchCorners[0]);
-    //
-    // for (var i = 1; i < sketchCorners.length; i++) {
-    //   var flag = 0;
-    //   for(var j =0; j < integratedCorner.length; j++) {
-    //     console.log(this.euclideanDistance(points[sketchCorners[i]], points[integratedCorner[j]]));
-    //     if(this.euclideanDistance(points[sketchCorners[i]], points[integratedCorner[j]])< 300) {
-    //       console.log("true");
-    //       flag = 1;
-    //     }
-    //   }
-    //
-    //   if(flag === 0)
-    //     integratedCorner.push(corners[i]);
-    // }
-    // return integratedCorner;
-
     return sketchCorners;
   },
 
@@ -145,9 +124,9 @@ var ShortStraw = {
         i = i - 1;
       }
     }
+
     // ----- end corner post-processing check #2 -----
     return corners;
-    //return corners;
   },
 
   isLine: function(points, a, b) {
@@ -157,7 +136,7 @@ var ShortStraw = {
     var threshold = 0.95;
     var startPoint = points[a];
     var endPoint = points[b];
-    console.log(startPoint);
+
     var ax = startPoint.x;
     var ay = startPoint.y;
     var bx = endPoint.x;

@@ -85,7 +85,7 @@ var SketchRecTools = {
       D = 0.0;
 
       // wrap the resampled points to a stroke and add it to array of resampled strokes
-      newStroke = {points: newPoints};
+      newStroke = {points: newPoints, id:stroke.id};
       newStrokes.push(newStroke);
     }
 
