@@ -66,11 +66,9 @@ $(document).ready(function() {
 	deserializer = new srlib.core.data.io.Deserializer();
 	serializer = new srlib.core.data.io.Serializer();
   //original = deserializer.fromSketchMLJSON(JSON.stringify(test));
-  simSketch = data[10];//SketchIo.getSketchObject(test);
+  simSketch = data[55];//SketchIo.getSketchObject(test);
+  DISTANCE_THRESHOLD = 50;
 	});
-
-
-  var DISTANCE_THRESHOLD = 50;
 
   var deepCopy = function( o ) {
       return JSON.parse(JSON.stringify( o ));
