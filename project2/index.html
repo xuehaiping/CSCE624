@@ -186,80 +186,80 @@
 		// DO SOMETHING HERE TO FIND IF THERE IS A TRUSS AND WHAT STROKE IDS IT IS MADE FROM
 		// gather the corners from their indices
 		cleanData();
-    var corners = [];
-    var cornersId = [];
-    //find all corners
-    for (var i = 0; i < resampledSketch.strokes.length; i++) {
-      var resampledPoints = resampledSketch.strokes[i].points;
-      var strokeCornerIndices = sketchCornerIndices[i];
-      for (var j = 0; j < strokeCornerIndices.length; j++) {
-        corners.push(resampledPoints[strokeCornerIndices[j]]);
-        cornersId.push(resampledSketch.strokes[i].id);
-      }
-    }
+		var corners = [];
+		var cornersId = [];
+		//find all corners
+		for (var i = 0; i < resampledSketch.strokes.length; i++) {
+		  var resampledPoints = resampledSketch.strokes[i].points;
+		  var strokeCornerIndices = sketchCornerIndices[i];
+		  for (var j = 0; j < strokeCornerIndices.length; j++) {
+			corners.push(resampledPoints[strokeCornerIndices[j]]);
+			cornersId.push(resampledSketch.strokes[i].id);
+		  }
+		}
 
-    //find merged nodes
-    var nodes = findMergeNodes(corners, cornersId);
+		//find merged nodes
+		var nodes = findMergeNodes(corners, cornersId);
 
-    //find new corners in the mid of a stroke
-    var newCorners = findBreakPoint(nodes, resampledSketch);
+		//find new corners in the mid of a stroke
+		var newCorners = findBreakPoint(nodes, resampledSketch);
 
-    for(var i=0; i<newCorners.length; i++) {
-      for(var j=0; j<sketchCornerIndices.length; j++) {
-        //insertIndex
-        if(newCorners[i].strokeIndex-1 == j) {
-          insertIndex(newCorners[i].pointIndex, sketchCornerIndices[j]);
-        }
-      }
-    }
+		for(var i=0; i<newCorners.length; i++) {
+		  for(var j=0; j<sketchCornerIndices.length; j++) {
+			//insertIndex
+			if(newCorners[i].strokeIndex-1 == j) {
+			  insertIndex(newCorners[i].pointIndex, sketchCornerIndices[j]);
+			}
+		  }
+		}
 
-  	var tempcorner= new Object();
-    for (var i = 0; i < resampledSketch.strokes.length; i++) {
-      var resampledPoints = resampledSketch.strokes[i].points;
-      var strokeCornerIndices = sketchCornerIndices[i];
-  	  //add添加根据stroke分别存corner的数组;
-  	  corners4stroke[i]= new Object();
-  	  corners4stroke[i].pointsI= [];
-	    //addend
-      for (var j = 0; j < strokeCornerIndices.length; j++) {
-  		//corners.push(resampledPoints[strokeCornerIndices[j]]);
-  		//add根据stroke分别存corner;
-  		tempcorner.point=resampledPoints[strokeCornerIndices[j]];
-  		tempcorner.label=0;//初始化
-  		tempcorner.index=0;//初始化
-  		//console.log(tempcorner);
-  		corners4stroke[i].pointsI.push(tempcorner);
-  		tempcorner=[];
-	    }
-	  }
+		var tempcorner= new Object();
+		for (var i = 0; i < resampledSketch.strokes.length; i++) {
+		  var resampledPoints = resampledSketch.strokes[i].points;
+		  var strokeCornerIndices = sketchCornerIndices[i];
+		  //add添加根据stroke分别存corner的数组;
+		  corners4stroke[i]= new Object();
+		  corners4stroke[i].pointsI= [];
+			//addend
+		  for (var j = 0; j < strokeCornerIndices.length; j++) {
+			//corners.push(resampledPoints[strokeCornerIndices[j]]);
+			//add根据stroke分别存corner;
+			tempcorner.point=resampledPoints[strokeCornerIndices[j]];
+			tempcorner.label=0;//初始化
+			tempcorner.index=0;//初始化
+			//console.log(tempcorner);
+			corners4stroke[i].pointsI.push(tempcorner);
+			tempcorner=[];
+			}
+		  }
 
-		//add添加一个函数对所有stroke的所有corner遍历并赋予全局索引Index，在nested loop中向后比较是否有distance小于threshold的corner，有则index赋予相同值,label置1。
-		var glcorners=SetIndex(corners4stroke);
-		//console.log(indexmaxcorner);
-		//addend
-		//add添加一个函数对每一个stroke的点序列对存为全局edge矩阵(可能存在同一edge对应多个stroke情况，若不影响acc，则先不改)，矩阵元素为先出现的strokeid
-		var gledges=SetEdge(glcorners);
-		//addend
-		//Remove Single Edge
-		var edges1 = deepCopy(gledges);
-		var glValidVertice=findValidVertices(edges1);
-		//end Remove
-		//add添加一个函数对edge矩阵遍历获得三角形集合
-		var gltriangles=SetTriangle(gledges);
-		//addend
-		//add添加一个函数对三角形集合遍历是否有share边，有share边则label=1。否则label=-1
-		var gltruss=SetTruss(gltriangles);
-		//addend
-		//add添加一个函数提取gltruss的三角形中的边对应的strokeID，存为strokeID集合
-		var glstrokeID=SetStrokeID(resampledSketch, gltruss, gledges);
-		console.log(glstrokeID);
+			//add添加一个函数对所有stroke的所有corner遍历并赋予全局索引Index，在nested loop中向后比较是否有distance小于threshold的corner，有则index赋予相同值,label置1。
+			var glcorners=SetIndex(corners4stroke);
+			//console.log(indexmaxcorner);
+			//addend
+			//add添加一个函数对每一个stroke的点序列对存为全局edge矩阵(可能存在同一edge对应多个stroke情况，若不影响acc，则先不改)，矩阵元素为先出现的strokeid
+			var gledges=SetEdge(glcorners);
+			//addend
+			//Remove Single Edge
+			var edges1 = deepCopy(gledges);
+			var glValidVertice=findValidVertices(edges1);
+			//end Remove
+			//add添加一个函数对edge矩阵遍历获得三角形集合
+			var gltriangles=SetTriangle(gledges);
+			//addend
+			//add添加一个函数对三角形集合遍历是否有share边，有share边则label=1。否则label=-1
+			var gltruss=SetTruss(gltriangles);
+			//addend
+			//add添加一个函数提取gltruss的三角形中的边对应的strokeID，存为strokeID集合
+			var glstrokeID=SetStrokeID(resampledSketch, gltruss, gledges);
+			console.log(glstrokeID);
 
-		//extract real stroke id from the resmapled sketch
-		var foundStrokeID=[];
-   	for (var i=0;i<glstrokeID.length;i++){
-  		foundStrokeID[i]=resampledSketch.strokes[glstrokeID[i]-1].id;
-   }
-	 console.log(foundStrokeID);
+			//extract real stroke id from the resmapled sketch
+			var foundStrokeID=[];
+		for (var i=0;i<glstrokeID.length;i++){
+			foundStrokeID[i]=resampledSketch.strokes[glstrokeID[i]-1].id;
+	   }
+		 console.log(foundStrokeID);
 
 		output.containsTruss = !glstrokeID.length==0;
 		// Instead of an array, you can use a Set, but make sure to return an array. Something along these lines should work.
@@ -455,14 +455,16 @@
 		indexmaxtriangle=0;
 		indexmaxtruss=0;
 	}
-
+	var sketchTrussStrokeIds =[];
 	function isInShape(fs, sketch) {
 		var realTrussStrokes = [];
+		sketchTrussStrokeIds=[];
 		//find if truss is in current sketch
 		var shapes = sketch.shapes;
 		for(var i=0; i<shapes.length; i++) {
 			if(shapes[i].interpretation==="truss") {
 				realTrussStrokes = shapes[i].subElements;
+				sketchTrussStrokeIds.push(realTrussStrokes);
 			}
 		}
 		//console.log(strokes);
@@ -535,7 +537,7 @@
     function getSketch() {
     	if (counter == sketchIds.length || counter == limit) { // Reached the last sketch.
 			displayStats();
-			//saveCSV();
+			saveCSV();
 			return;
 		}
     	var id = sketchIds[counter];
@@ -574,11 +576,12 @@
 			// Read line by line
 			var lines = JSON.parse(this.result);
 			if (limit > lines.length) { limit = lines.length; } // In case there are fewer lines than the user selected limit.
+			console.log(lines.length);
 			for(var line = 0; line < limit; line++){
-			if(line==36 || line==54 || line==58 || line==59
-				|| line==75 || line==78 || line==87 || line==88
-				|| line==97 || line==134)
-				continue;
+			//if(line==36 || line==54 || line==58 || line==59
+				//|| line==75 || line==78 || line==87 || line==88
+				//|| line==97 || line==134)
+				//continue;
 
 				if (lines[line] == '') { continue; }
 				var sketch = lines[line];
@@ -595,7 +598,7 @@
 			}
 			console.log(resultList);
 			displayStats();
-			//saveCSV();
+			saveCSV();
 		};
 		reader.readAsText(file);
 	}
@@ -637,11 +640,11 @@
 		sketch.shapes = arrayToObj(sketch.shapes);
 		//sketch.substrokes = arrayToObj(sketch.substrokes);
 		sketch.trussStrokeIds = new Set();
-
+		//console.log(sketch['_id']);
 		var row = [];
 		row.push(sketch['_id']);
 		row.push(sketch.id);
-		row.push(ans.containsTruss);
+		row.push(resultList[resultList.length-1].containsTruss);
 
 		// This finds the answer data for the original sketch. Could probably be factored out of this function, but for the homework starter files I'm tired and this works fine anyway.
 		sketch.containsTruss = false;
@@ -654,13 +657,13 @@
 		});
 
 		row.push(sketch.containsTruss);
-		row.push('"' + JSON.stringify([...new Set(ans.trussStrokeIds)]).replace(/"/g, '') + '"'); // This will make the field surrounded by double quotes but have no double quotes so it all appears in 1 cell in the CSV.
-		row.push('"' + JSON.stringify([...sketch.trussStrokeIds]).replace(/"/g, '') + '"');
-		row.push(sketch.containsTruss === ans.containsTruss);
+		row.push('"' + JSON.stringify([...new Set(resultList[resultList.length-1].trussStrokeIds)]).replace(/"/g, '') + '"'); // This will make the field surrounded by double quotes but have no double quotes so it all appears in 1 cell in the CSV.
+		row.push('"' + JSON.stringify([...sketchTrussStrokeIds]).replace(/"/g, '') + '"');
+		row.push(sketch.containsTruss === resultList[resultList.length-1].containsTruss);
 
 		// Find if the strokeIds all match.
 		var idsMatch = true; // Until we prove otherwise
-		var tempAns = new Set(ans.trussStrokeIds);
+		var tempAns = new Set(resultList[resultList.length-1].trussStrokeIds);
 		var tempSketch = new Set(sketch.trussStrokeIds);
 		if (tempAns.size !== tempSketch.size) { // Different number of strokeIds, so no match.
 			idsMatch = false;
@@ -670,19 +673,19 @@
 			}
 			idsMatch = tempSketch.size === 0; // If all ids match, then all will be removed and tempSketch.size will be 0.
 		}
-		row.push(idsMatch);
+		row.push(resultList[resultList.length-1].strokeMatch);
 
-		// Update metrics
-		if (sketch.containsTruss && ans.containsTruss) {
+		// Update metrics 修改为resultList中的truss判据
+		if (sketch.containsTruss && resultList[resultList.length-1].containsTruss) {
 			TP++;
-		} else if (!sketch.containsTruss && ans.containsTruss) { // Doesn't contain a truss, but answer says it does
+		} else if (!sketch.containsTruss && resultList[resultList.length-1].containsTruss) { // Doesn't contain a truss, but answer says it does
 			FP++;
-		} else if (sketch.containsTruss && !ans.containsTruss) {
+		} else if (sketch.containsTruss && !resultList[resultList.length-1].containsTruss) {
 			FN++;
 		} else {
 			TN++;
 		}
-		if (idsMatch) { strokeIdMatches++; }
+		if (resultList[resultList.length-1].strokeMatch) { strokeIdMatches++; }
 
 		rows.push(row);
 	}

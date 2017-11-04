@@ -8,7 +8,7 @@ var ShortStraw = {
     for (var i = 0; i < strokes.length; i++) {
       var points = strokes[i].points;
       var strokeCorners = this.findShortStrawCorners(points);
-      sketchCorners.push(strokeCorners);
+      sketchCorners.push(strokeCorners);	  
     }
     return sketchCorners;
   },
@@ -35,13 +35,11 @@ var ShortStraw = {
       var strawDistance = SketchRecTools.calculateDistance(straw0.x, straw0.y, strawN.x, strawN.y);
       straws.push(strawDistance);
     }
-
     // calculate the pseudo-median
     var t = ShortStraw.calculateMedian(straws) * 0.95;
 
     // iterate through each straw distance
     for (var i = 0; i < straws.length; i++) {
-
       // case: the current straw distance is less than the pseudo-median
       if (straws[i] < t) {
 
@@ -65,7 +63,11 @@ var ShortStraw = {
 
         // add the corner index of local cluster to the corner indices array
         // note: need to add W to offset between the straw indices and point indices
-        corners.push(localMinIndex + this.W);
+		if ((localMinIndex + this.W)<(points.length - 1)){
+			corners.push(localMinIndex + this.W);
+
+		}
+        
       }
     }
 
@@ -81,14 +83,16 @@ var ShortStraw = {
     var advance = false;
     while (!advance) {
       advance = true;
-
+		
       // iterate through the corner indices
+	  
       for (var i = 1; i < corners.length; i++) {
         // get the previous and current corner indices
         var c1 = corners[i - 1];
         var c2 = corners[i];
 
         // check if line is formed between previous and current corner indices
+
         var isLine = this.isLine(points, c1, c2);
         if (!this.isLine(points, c1, c2)) {
 
@@ -99,13 +103,15 @@ var ShortStraw = {
 
           // skip adding new corner, since it already exists
           // can happen during an overzealous halfway corner calculation
-          if (newCorner === c2) {
+          if (newCorner >= c2) {
             continue;
           }
 
           corners.splice(i, 0, newCorner);
+
           advance = false;
         }
+		
       }
 
       // emergency stop
@@ -130,13 +136,12 @@ var ShortStraw = {
   },
 
   isLine: function(points, a, b) {
-
+	
     var subset = points.slice(a, b + 1);
 
     var threshold = 0.95;
     var startPoint = points[a];
     var endPoint = points[b];
-
     var ax = startPoint.x;
     var ay = startPoint.y;
     var bx = endPoint.x;
